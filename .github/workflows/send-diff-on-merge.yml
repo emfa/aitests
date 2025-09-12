@@ -1,0 +1,40 @@
+# The name of the workflow, which will appear in the "Actions" tab.
+name: Send Full Diff to API on Merge
+
+# This configures the workflow to run on a 'push' event to the 'main' branch.
+on:
+  push:
+    branches:
+      - main  # <-- CORRECTED: This now points to your 'main' branch.
+
+# Defines the sequence of jobs to be executed.
+jobs:
+  build_and_send_diff:
+    # The job will run on a GitHub-hosted virtual machine.
+    runs-on: ubuntu-latest
+
+    # The list of sequential steps to be executed within this job.
+    steps:
+      # Step 1: Checks out your repository's code into the runner.
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          # Fetches the entire git history to allow comparing commits.
+          fetch-depth: 0
+
+      # Step 2: Calculates the full diff and saves it as an output variable.
+      - name: Capture the Full Diff
+        id: get_diff
+        run: |
+          echo "full_diff<<EOF" >> $GITHUB_OUTPUT
+          git diff ${{ github.event.before }} ${{ github.event.after }} >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # Step 3: Makes an API call with the captured diff data.
+      - name: Send Diff to External API
+        run: |
+          # IMPORTANT: Replace the URL below with your own from Webhook.site
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"commit_diff": "${{ steps.get_diff.outputs.full_diff }}"}' \
+            'https://webhook.site/169e986c-efa9-43e7-935e-3166e20b8139'
