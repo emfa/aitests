@@ -1,0 +1,46 @@
+name: Trigger Living Documentation Update
+
+# This section defines WHEN the workflow will run.
+on:
+  push:
+    branches:
+      - main
+
+# This section defines the actual work to be done.
+jobs:
+  trigger_update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Step 1: Capture the git diff.
+      - name: Capture the Full Diff
+        # 'id' gives this step a unique name so we can reference its output later.
+        id: get_diff
+        run: |
+          # This shell command runs 'git diff' between the commit before the push
+          # and the commit after the push.
+          # '<<EOF' is a safe way to handle multi-line strings.
+          echo "full_diff<<EOF" >> $GITHUB_OUTPUT
+          git diff ${{ github.event.before }} ${{ github.event.after }} >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # Step 2: Send the diff payload to your local server.
+      - name: Trigger Documentation Update
+        env:
+          API_ENDPOINT: ${{ secrets.DOCS_API_ENDPOINT }}
+        run: |
+          JSON_PAYLOAD=$(jq -n \
+            --arg repo "${{ github.repository }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg diff "${{ steps.get_diff.outputs.full_diff }}" \
+            '{repository_name: $repo, commit_sha: $sha, git_diff: $diff}')
+
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD" \
+            "$API_ENDPOINT"
