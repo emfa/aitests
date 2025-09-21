@@ -33,11 +33,12 @@ jobs:
       - name: Trigger Documentation Update
         env:
           API_ENDPOINT: ${{ secrets.DOCS_API_ENDPOINT }}
+          GIT_DIFF: ${{ steps.get_diff.outputs.full_diff }}
         run: |
           JSON_PAYLOAD=$(jq -n \
             --arg repo "${{ github.repository }}" \
             --arg sha "${{ github.sha }}" \
-            --arg diff "${{ steps.get_diff.outputs.full_diff }}" \
+            --arg diff "$GIT_DIFF" \
             '{repository_name: $repo, commit_sha: $sha, git_diff: $diff}')
 
           curl -X POST \
